@@ -19,7 +19,7 @@ RUN npm ci && \
 COPY --chown=node:node . .
 
 # Run application as non-root user
-USER giwa
+USER node
 
 ENV PORT=80
 EXPOSE 80
