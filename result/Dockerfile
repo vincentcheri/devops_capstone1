@@ -16,10 +16,10 @@ RUN npm ci && \
  npm cache clean --force && \
  mv /usr/local/app/node_modules /node_modules
 
-COPY --chown=node:node . .
+COPY --chown=giwa:giwa . .
 
 # Run application as non-root user
-USER node
+USER giwa
 
 ENV PORT=80
 EXPOSE 80
