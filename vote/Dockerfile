@@ -1,5 +1,5 @@
 # base defines a base stage that uses the official python runtime base image
-FROM python:3.11-slim@sha256:b7a9e5f6a93d6d4a31f129bbd4bdee69efccb6ded0fb230d78aafaf37af98377 AS base
+FROM python:3.11-slim AS base
 
 # Add curl for healthcheck
 RUN apt-get update && \
@@ -33,8 +33,8 @@ COPY --chown=app:app . .
 # Run application as non-root user
 USER app
 
-# Make port 8080 available for links and/or publish
-EXPOSE 8080
+# Make port 80 available for links and/or publish
+EXPOSE 80
 
 # Define our command to be run when launching the container
-CMD ["gunicorn", "app:app", "-b", "0.0.0.0:8080", "--log-file", "-", "--access-logfile", "-", "--workers", "4", "--keep-alive", "0"]
+CMD ["gunicorn", "app:app", "-b", "0.0.0.0:80", "--log-file", "-", "--access-logfile", "-", "--workers", "4", "--keep-alive", "0"]
