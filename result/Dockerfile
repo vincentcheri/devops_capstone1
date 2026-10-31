@@ -21,8 +21,8 @@ COPY --chown=node:node . .
 # Run application as non-root user
 USER node
 
-ENV PORT=80
-EXPOSE 80
+ENV PORT=8080
+EXPOSE 8080
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "server.js"]
