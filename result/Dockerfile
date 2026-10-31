@@ -16,7 +16,7 @@ RUN npm ci && \
  npm cache clean --force && \
  mv /usr/local/app/node_modules /node_modules
 
-COPY --chown=giwa:giwa . .
+COPY --chown=node:node . .
 
 # Run application as non-root user
 USER giwa
