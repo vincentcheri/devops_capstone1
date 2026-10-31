@@ -26,6 +26,6 @@ FROM mcr.microsoft.com/dotnet/runtime:7.0
 WORKDIR /app
 COPY --from=build /app .
 # create a user app and su into the user
-RUN useradd -u 10001 -m -s /bin/sh appuser && chown -R appuser:appuser /app
-USER appuser
+RUN useradd -u 10001 -m -s /bin/sh giwa && chown -R giwa:giwa /app
+USER giwa
 ENTRYPOINT ["dotnet", "Worker.dll"]
