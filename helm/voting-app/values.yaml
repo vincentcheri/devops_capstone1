@@ -57,8 +57,3 @@ db:
   service:
     type: ClusterIP
     port: 5432
-  persistence:
-    enabled: true
-    storageClass: gp2
-    accessMode: ReadWriteOnce
-    size: 10Gi
