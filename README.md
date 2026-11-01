@@ -1,239 +1,250 @@
-# Capstone 1 – Voting Application on Amazon EKS
+# Capstone 1 – End-to-End DevOps: Voting Application on Amazon EKS
 
 ## Project Overview
 
-This project demonstrates the deployment of a distributed Voting Application on **Amazon Elastic Kubernetes Service (EKS)** using Kubernetes and Helm.
+This project demonstrates an end-to-end DevOps workflow for deploying a distributed Voting Application to Amazon Elastic Kubernetes Service (EKS).
 
-The application consists of multiple services running in containers and communicating with one another to collect votes and display voting results.
+It covers local development with Docker Compose, secure containerization, infrastructure provisioning with Terraform, CI/CD automation using GitHub Actions, and Kubernetes deployment using Helm.
 
-The project uses a custom Helm chart to manage Kubernetes resources and simplify application deployment, upgrades, and rollbacks.
+It also demonstrates how to intentionally introduce a failed deployment and recover the application using Helm rollback.
 
-## Application Architecture
+## Architecture
 
-The application consists of the following components:
+The architecture below illustrates the relationship between the source code, CI/CD pipeline, AWS infrastructure, container registry, and Kubernetes application.
 
-- **Vote:** A Python web application that allows users to vote between two options.
-- **Redis:** Receives and temporarily stores votes as messages.
-- **Worker:** A .NET application that processes votes from Redis and stores them in PostgreSQL.
-- **PostgreSQL:** Stores the voting results.
-- **Result:** A Node.js web application that displays voting results in real time.
+![Voting Application Architecture](docs/architecture-diagram.png)
 
 ## Technologies Used
 
-- Docker – Containerization
-- Kubernetes – Container orchestration
-- Amazon EKS – Managed Kubernetes service
-- Helm – Kubernetes package management
-- Redis – Message queue
-- PostgreSQL – Database
-- Python – Voting frontend
-- Node.js – Results frontend
-- .NET – Background worker
-- AWS CLI – AWS resource management
-- kubectl – Kubernetes cluster management
+- Docker and Docker Compose
+- Kubernetes
+- Amazon EKS
+- Terraform
+- Amazon S3
+- GitHub Actions
+- Trivy
+- Helm
+- Redis
+- PostgreSQL
+- Python
+- Node.js
+- .NET
 
-## Project Structure
+## 1. Run the Application Locally
 
-```text
-devops_capstone1/
-│
-├── helm/
-│   └── voting-app/
-│       ├── Chart.yaml
-│       ├── values.yaml
-│       └── templates/
-│           ├── _helpers.tpl
-│           ├── db-deployment.yaml
-│           ├── db-service.yaml
-│           ├── redis-deployment.yaml
-│           ├── redis-service.yaml
-│           ├── vote-deployment.yaml
-│           ├── vote-service.yaml
-│           ├── result-deployment.yaml
-│           ├── result-service.yaml
-│           └── worker-deployment.yaml
-│
-└── k8s-specifications/
-    └── Kubernetes YAML manifests
+The project starts with a distributed Voting Application consisting of five services:
+
+- **Vote:** Python frontend for submitting votes.
+- **Redis:** Receives and queues votes.
+- **Worker:** .NET service that processes votes.
+- **PostgreSQL:** Stores voting results.
+- **Result:** Node.js frontend that displays results.
+
+Run the application locally:
+
+```bash
+docker compose up
 ```
 
-## Amazon EKS Configuration
+The objective is to verify that the application works before moving into container orchestration.
 
-The Kubernetes cluster was deployed on Amazon EKS.
+## 2. Containerize the Application Safely
+
+The application is containerized using Docker.
+
+Security improvements include:
+
+- Pinning base image versions.
+- Running containers as non-root users.
+- Using `.dockerignore` to exclude unnecessary files.
+- Building and testing the application images.
+
+## 3. Provision Kubernetes Infrastructure with Terraform
+
+Terraform is used to provision the AWS infrastructure required for the Kubernetes deployment.
+
+The Terraform configuration files are maintained in `tf_aeks/`.
+
+The infrastructure was destroyed and recreated using Terraform, demonstrating Infrastructure as Code rather than relying on manual resource creation.
+
+**EKS configuration:**
 
 | Configuration | Value |
 |---|---|
 | Cluster name | voting-app-cluster |
 | AWS Region | eu-north-1 |
 | Kubernetes version | 1.31 |
-| Node group | 2 worker nodes |
-| Helm release | voting-app |
-| Kubernetes namespace | default |
+| Worker nodes | 2 |
 
-## Getting Started
+### Terraform Infrastructure Provisioning
 
-### Prerequisites
+The screenshot below shows Terraform destroying the previous EKS node group and creating it again from the configuration. The operation completed successfully.
 
-Install and configure the following tools:
+![Terraform EKS infrastructure provisioning](docs/eks-terra.png)
 
-- AWS CLI
-- kubectl
-- Helm
-- An AWS account with the required permissions
+### Terraform Remote State with Amazon S3
 
-### 1. Configure Kubernetes Access
+Terraform state was configured to use an S3 backend instead of relying solely on local state files.
 
-Connect kubectl to the EKS cluster:
+The remote state is stored at:
 
-```bash
-aws eks update-kubeconfig \
-  --region eu-north-1 \
-  --name voting-app-cluster
-```
+- **Bucket:** `admingiwa-s3-sda`
+- **Key:** `capstone1/eks/terraform.tfstate`
+- **Region:** `eu-north-1`
 
-Verify the connection:
+This allows Terraform to retrieve the infrastructure state from S3 when working from the configured backend.
 
-```bash
-kubectl get nodes
-```
+The screenshot below shows the Terraform state file stored in the S3 bucket.
 
-### 2. Validate the Helm Chart
+![Terraform remote state stored in Amazon S3](docs/terraform-remote-state.png)
 
-Navigate to the project directory and validate the chart:
+## 4. Automate with GitHub Actions
+
+GitHub Actions is used to automate the CI/CD workflow.
+
+The pipeline stages include:
+
+1. Run application tests.
+2. Scan images and dependencies using Trivy.
+3. Build Docker images.
+4. Push images to the container registry.
+5. Tag images using the Git commit SHA.
+
+This creates a repeatable workflow for building and publishing application images.
+
+## 5. Deploy the Application with Helm
+
+A custom Helm chart is used to deploy the Voting Application to Amazon EKS.
+
+First, validate the chart:
 
 ```bash
 helm lint ./helm/voting-app
 ```
 
-### 3. Deploy the Application
-
-Install the application using Helm:
+Deploy the application:
 
 ```bash
 helm upgrade --install voting-app ./helm/voting-app
 ```
 
-### 4. Verify the Deployment
-
-Check the running Pods:
+Verify the deployment:
 
 ```bash
 kubectl get pods
-```
-
-Check the Services:
-
-```bash
 kubectl get services
-```
-
-Check the Deployments:
-
-```bash
 kubectl get deployments
-```
-
-Check the Helm release:
-
-```bash
 helm status voting-app
 ```
 
-## Accessing the Application
-
-The application exposes two frontend services through Kubernetes NodePort services.
+The application exposes two frontend services through Kubernetes NodePort:
 
 | Application | NodePort |
 |---|---:|
 | Vote | 31000 |
 | Result | 31001 |
 
-Access the applications using a reachable worker-node IP address:
+### Successful Deployment
 
-```text
-http://<NODE-IP>:31000
-http://<NODE-IP>:31001
+The screenshot below shows the Helm chart validation, successful release deployment, five running application Pods, and the Kubernetes Services.
+
+![Voting application successfully deployed with Helm](docs/voteapp-k8-deploy-helm.png)
+
+## 6. Simulate a Failed Helm Release
+
+To test deployment failure and recovery, an intentionally invalid image tag was deployed for the Vote application.
+
+```bash
+helm upgrade voting-app ./helm/voting-app \
+  --set vote.image.tag=bad-release-test
 ```
 
-Ensure the necessary network and security-group rules permit access to these ports.
+This created a new Helm release revision.
 
-## Helm Release Management
-
-Helm manages the application's deployment history.
-
-### View Release History
+### Inspect Helm Release History
 
 ```bash
 helm history voting-app
 ```
 
-### Upgrade the Application
+The screenshot below shows the Helm release history after the bad upgrade, including the new release revision.
+
+![Helm history showing the bad release](docs/badrelease.png)
+
+### Observe the Image Pull Failure
 
 ```bash
-helm upgrade voting-app ./helm/voting-app
+kubectl get pods
 ```
 
-### Roll Back a Release
+The new Vote Pod entered `ImagePullBackOff` because Kubernetes could not pull the invalid image.
 
-To restore a previous revision:
+The existing Vote Pod remained running while Kubernetes attempted to perform the rolling update.
 
-```bash
-helm rollback voting-app <REVISION>
-```
+![Vote Pod showing ImagePullBackOff after the bad release](docs/badreleaseonvote.png)
 
-### Check Release Status
+This demonstrated how Kubernetes handles an unsuccessful rolling update while the previous working Pod is still available.
 
-```bash
-helm status voting-app
-```
+## 7. Recover the Application Using Helm Rollback
 
-## Testing Helm Rollback
-
-As part of this project, a failed release was intentionally introduced by deploying an invalid Vote image tag.
-
-```bash
-helm upgrade voting-app ./helm/voting-app \
-  --set vote.image.tag=1337xgiwagizo
-```
-
-The new Vote Pod entered `ImagePullBackOff` because Kubernetes could not pull the specified image.
-
-The previous working release was restored using:
+After confirming the failure, the application was rolled back to a previous working revision.
 
 ```bash
 helm rollback voting-app 3
 ```
 
-The application recovered, and all five application components returned to a Running state.
+### Verify Application Recovery
 
-This exercise demonstrated Helm revision history, failed upgrades, Kubernetes reconciliation, and release rollback.
+```bash
+kubectl get pods
+helm history voting-app
+```
 
-## Cleaning Up
+The rollback restored the previous working configuration. All five application components returned to a `Running` state.
 
-To remove the application from the cluster:
+The screenshot below shows the rollback operation and the recovered application.
+
+![Successful Helm rollback and application recovery](docs/roll-back-to-working-version.png)
+
+This exercise demonstrated:
+
+- Helm release history and revisions.
+- Failed application upgrades.
+- Kubernetes rolling updates.
+- Image pull failures.
+- Restoring a previous working release.
+- Application recovery without reinstalling the entire application.
+
+## Project Outcome
+
+Successfully provisioned AWS infrastructure using Terraform, configured remote state storage with Amazon S3, and deployed a distributed Voting Application to Amazon EKS using Helm.
+
+The project provided practical experience with:
+
+- Docker containerization.
+- Infrastructure as Code.
+- AWS EKS cluster management.
+- Terraform remote state.
+- CI/CD automation concepts.
+- Container security scanning.
+- Kubernetes deployments and services.
+- Helm chart management.
+- Deployment troubleshooting and rollback strategies.
+
+## Cleanup
+
+Remove the Helm release:
 
 ```bash
 helm uninstall voting-app
 ```
 
-To verify removal:
+To destroy the Terraform-managed infrastructure, navigate to the Terraform directory:
 
 ```bash
-kubectl get pods
-kubectl get services
+cd tf_aeks
+terraform plan -destroy
+terraform destroy
 ```
 
-**Note:** This command removes the Helm-managed application resources. It does not delete the EKS cluster itself.
-
-## Important Notes
-
-- The application is composed of multiple independently running services.
-- Helm manages the Kubernetes resources through templates and configurable values.
-- The PostgreSQL database currently uses an `emptyDir` volume in the DB Deployment. Its data is temporary and will be lost when the Pod is removed and replaced.
-- NodePort access depends on the worker nodes being reachable and the required network rules being configured.
-
-## Project Outcome
-
-Successfully deployed a distributed Voting Application to Amazon EKS using a custom Helm chart.
-
-The project provided practical experience with container orchestration, Kubernetes workloads, Services, Helm chart configuration, release upgrades, troubleshooting, and rollback strategies.
+Review the destruction plan carefully before confirming.
