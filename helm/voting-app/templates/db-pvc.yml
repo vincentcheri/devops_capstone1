@@ -1,0 +1,16 @@
+{{- if .Values.db.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-data
+  labels:
+    app: db
+    {{- include "voting-app.labels" . | nindent 4 }}
+spec:
+  storageClassName: {{ .Values.db.persistence.storageClass }}
+  accessModes:
+    - {{ .Values.db.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.db.persistence.size }}
+{{- end }}
